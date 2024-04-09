@@ -11,7 +11,9 @@ $(document).ready(function() {
 
     // Search button event listener
     $('#search-btn').on('click', function() {
+
         const cityName = $('#search-input').val().trim();
+
         if (cityName) {
             addCityToHistory(cityName);
             fetchCoordinates(cityName);
@@ -21,30 +23,54 @@ $(document).ready(function() {
         }
     });
 
-    // Add a city to the search history and save it
-    function addCityToHistory(cityName) {
-        const listItem = $('<li>').addClass('list-group-item').text(cityName);
-        $('#history-list').append(listItem);
-
-        saveCityToLocalStorage(cityName);
-    }
-
     // Save history to local storage
     function saveCityToLocalStorage(cityName) {
         let cities = JSON.parse(localStorage.getItem('searchHistory')) || [];
+
         if (!cities.includes(cityName)) {
             cities.push(cityName);
             localStorage.setItem('searchHistory', JSON.stringify(cities));
         }
     }
 
-    // Get history from local storage
+    // get local storage, add each city back to the history list
     function loadHistory() {
         const cities = JSON.parse(localStorage.getItem('searchHistory')) || [];
+        $('#history-list').empty();
+
         cities.forEach(function(cityName) {
-            const listItem = $('<li>').addClass('list-group-item').text(cityName);
-            $('#history-list').append(listItem);
+            addCityToHistory(cityName, false);
         });
+    }
+    
+    // Add a city to the history
+    function addCityToHistory(cityName, updateLocalStorage = true) {
+        if ($("#history-list").find(`li[data-city='${cityName}']`).length === 0) {
+            const listItem = $(`<li data-city='${cityName}' class='list-group-item d-flex justify-content-between align-items-center'>`).text(cityName);
+            const removeBtn = $("<span class='badge bg-danger'>X</span>");
+            
+            removeBtn.on('click', function(event) {
+                event.stopPropagation(); // Should stop the click functionality
+                $(this).parent().remove();
+                removeFromLocalStorage(cityName)
+            });
+            
+            listItem.append(removeBtn);
+            listItem.on('click', function() {
+                fetchCoordinates(cityName);
+            });
+            $('#history-list').append(listItem);
+        }
+    
+        if(updateLocalStorage) {
+            saveCityToLocalStorage(cityName);
+        }
+    }
+    
+    function removeFromLocalStorage(cityName) {
+        let cities = JSON.parse(localStorage.getItem('searchHistory')) || [];
+        const filteredCities = cities.filter(city => city !== cityName);
+        localStorage.setItem('searchHistory', JSON.stringify(filteredCities));
     }
 
     // Fetch coordinates for the city
@@ -61,7 +87,7 @@ $(document).ready(function() {
                     alert('City not found. Try again.');
                 }
             })
-        .catch(error => console.error('Error:', error));
+        .catch(error => console.error('Error during coordinates, ', error));
     }
 
     // Fetch weather using coordinates
@@ -82,10 +108,12 @@ $(document).ready(function() {
     function displayCurrentWeather(data, cityName) {
         const currentWeather = data.list[0];
         const weatherEmoji = getWeatherEmoji(currentWeather.weather[0].main);
+        // Get date and day
         const currentDate = new Date(currentWeather.dt * 1000);
         const dateString = currentDate.toLocaleDateString();
-        const dayString = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // Get the day of the week
+        const dayString = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
     
+        // Setup for current weather
         $('#current-weather-content').html(`
             <h3>${cityName} ${weatherEmoji}</h3>
             <h4>(${dayString}, ${dateString})</h4>
